@@ -15,27 +15,29 @@ except LookupError:
     nltk.download('punkt')
     nltk.download('stopwords')
 
-# Folder Path (relative to repo)
-folder_path = './Preprocessed_text'
-texts = []
-filenames = []
+# Sector Keywords (define here)
+sector_keywords = {
+    'energy': ['renewable energy', 'clean energy', 'solar power', 'wind energy', 'bioenergy'],
+    'transport': ['sustainable mobility', 'public transport', 'electric vehicles', 'transport infrastructure', 'rail development'],
+    'urban_development': ['climate change', 'environment forests', 'green infrastructure', 'urban resilience', 'sustainable housing']
+}
 
-for filename in os.listdir(folder_path):
-    if filename.endswith('.txt'):
-        file_path = os.path.join(folder_path, filename)
-        with open(file_path, 'r', encoding='utf-8') as file:
-            text = file.read()
-            tokens = word_tokenize(text.lower())
-            texts.append(tokens)
-            filenames.append(filename)
+# Sample data (replace with real files for production)
+texts = [
+    ["renewable", "energy", "solar", "power"],
+    ["sustainable", "mobility", "electric", "vehicles"],
+    ["climate", "change", "urban", "resilience"]
+]
+filenames = ["2015-16_energy.txt", "2016-17_transport.txt", "2017-18_urban.txt"]
 
-# LDA Model
-dictionary = corpora.Dictionary(texts)
-corpus = [dictionary.doc2bow(text) for text in texts]
+# Preprocess and LDA
+processed_texts = [word_tokenize(' '.join(text).lower()) for text in texts]
+dictionary = corpora.Dictionary(processed_texts)
+corpus = [dictionary.doc2bow(text) for text in processed_texts]
 lda_model = LdaModel(corpus=corpus, num_topics=5, id2word=dictionary, passes=20)
 topic_labels = [f"Topic {i}: {lda_model.print_topic(i, topn=3)}" for i in range(5)]
 
-# Sector Classification (simplified)
+# Sector Classification
 sector_data = defaultdict(list)
 for i, filename in enumerate(filenames):
     text = ' '.join(texts[i])
@@ -50,15 +52,17 @@ for i, filename in enumerate(filenames):
 
 # Dashboard
 st.title("Climate Policy Trends Dashboard")
-valid_sectors = ['energy', 'transport', 'urban_development', 'unknown']
-selected_sector = st.text_input("Search Sector (energy, transport, urban_development, unknown):").lower().strip()
-if not selected_sector or selected_sector not in valid_sectors:
-    st.error("Please enter a valid sector.")
+
+# Sidebar for filters
+st.sidebar.header("Filters")
+selected_sector = st.sidebar.text_input("Search Sector (energy, transport, urban_development, unknown):").lower()
+if not selected_sector or selected_sector not in sector_data:
+    st.sidebar.error("Invalid sector. Choose from energy, transport, urban_development, unknown.")
     st.stop()
 
 years_available = sorted(set(data['year'] for data in sector_data[selected_sector]))
-selected_years = st.multiselect("Select Years (or all for combined):", years_available, default=years_available)
-selected_topic = st.selectbox("Select Topic", list(range(5)) + [-1], format_func=lambda x: topic_labels[x] if x >= 0 else "All Topics")
+selected_years = st.sidebar.multiselect("Select Years (or all for combined):", years_available, default=years_available)
+selected_topic = st.sidebar.selectbox("Select Topic", list(range(5)) + [-1], format_func=lambda x: topic_labels[x] if x >= 0 else "All Topics")
 
 # Filter Data
 topic_data = defaultdict(list)
